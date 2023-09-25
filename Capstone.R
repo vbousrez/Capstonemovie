@@ -1,8 +1,4 @@
 ## INITIAL CODE PROVIDED BY EDX TO GENERATE EDX AND FINAL_HOLDHOUT
-library(tidyverse)
-library(caret)
-library(dslabs)
-
 ##########################################################
 # Create edx and final_holdout_test sets 
 ##########################################################
@@ -12,8 +8,10 @@ library(dslabs)
 if(!require(tidyverse)) install.packages("tidyverse", repos = "http://cran.us.r-project.org")
 if(!require(caret)) install.packages("caret", repos = "http://cran.us.r-project.org")
 
+# library
 library(tidyverse)
 library(caret)
+library(dslabs)
 
 # MovieLens 10M dataset:
 # https://grouplens.org/datasets/movielens/10m/
@@ -25,17 +23,18 @@ dl <- "ml-10M100K.zip"
 if(!file.exists(dl))
   download.file("https://files.grouplens.org/datasets/movielens/ml-10m.zip", dl)
 
-#rating file
+# Unzip rating file
 ratings_file <- "ml-10M100K/ratings.dat"
 if(!file.exists(ratings_file))
   unzip(dl, ratings_file)
 file.exists(dl)
 
-#movie file
+#Unzip movie file
 movies_file <- "ml-10M100K/movies.dat"
 if(!file.exists(movies_file))
   unzip(dl, movies_file)
 
+#Load and convert rating matrix into data frame
 ratings <- as.data.frame(str_split(read_lines(ratings_file), fixed("::"), simplify = TRUE),
                          stringsAsFactors = FALSE)
 
@@ -47,6 +46,8 @@ ratings <- ratings %>%
          timestamp = as.integer(timestamp))
 
 ratings
+
+#Load and convert movie matrix into data frame
 movies <- as.data.frame(str_split(read_lines(movies_file), fixed("::"), simplify = TRUE),
                         stringsAsFactors = FALSE)
 colnames(movies) <- c("movieId", "title", "genres")
@@ -54,9 +55,11 @@ movies <- movies %>%
   mutate(movieId = as.integer(movieId))
 movies
 
+#Join tables ratings and movies to build movie lens
 movielens <- left_join(ratings, movies, by = "movieId")
 movielens
 
+#Check size of the data table
 dim(movielens) 
 #10000054 cells number non null and 6 columns       
 
@@ -67,7 +70,9 @@ length(unique(movielens$userId))
 length(unique(movielens$movieId))
 
 # Convert string character of genre into string of integer for faster processing
-movielens$genres = as.numeric(as.factor(edx$genres))
+movielens$genres = as.factor(movielens$genres)
+movielens$genres = as.numeric(movielens$genres)
+movielens$genres = as.character(movielens$genres)
 head(movielens)
 
 # Final hold-out test set will be 10% of MovieLens data
@@ -96,7 +101,6 @@ rm(dl, ratings, movies, test_index, temp, movielens, removed)
 
 edx
 
-# Sepratation edx en train and test
 # Split edX between test and train for models 1 to 4
 test_index <- createDataPartition(y = edx$rating, times = 1, p = 0.1, list = FALSE)
 edx_train <- edx[-test_index,]
@@ -116,8 +120,76 @@ edx_train <- rbind(edx, edx_train )
 edx_train 
 rm(temp, removed)
 
+##########################################################
+# Data Analysis for inclusion of variables
+##########################################################
 
-#First Model based on simple average rating
+#Visualization of movie effect
+edx %>% 
+  group_by(movieId) %>%
+  summarize(n=n(), avg= mean(rating), se = sd(rating)/sqrt(n())) %>%
+  filter(n >=1000) %>%
+  mutate(genres = reorder(movieId, avg)) %>%
+  ggplot(aes(x= movieId, y=avg, ymin= avg - 2*se, ymax=avg+2*se))+
+  geom_point()+
+  geom_errorbar()+
+  theme(axis.text.x = element_text(angle =90, hjust=1))
+#Movie effect Will be included in the model
+
+#Analysis of user effect
+names(edx)
+#plotting the average rating for those above 100 ratings to assess relevance
+edx %>% 
+  group_by(userId) %>%
+  summarize(n=n(), avg= mean(rating), se = sd(rating)/sqrt(n())) %>%
+  filter(n >=1000) %>%
+  mutate(genres = reorder(userId, avg)) %>%
+  ggplot(aes(x= userId, y=avg, ymin= avg - 2*se, ymax=avg+2*se))+
+  geom_point()+
+  geom_errorbar()+
+  theme(axis.text.x = element_text(angle =90, hjust=1))
+#User effect Will be included in the model
+
+#plotting the average rating for those above 100 ratings to assess relevance
+edx%>%
+  group_by(userId)%>%
+  summarize(b_u= mean(rating))%>%
+  filter(n()>=100)%>%
+  ggplot(aes(b_u))+
+  geom_histogram(bins=30, color = "black")
+
+#Assessing opportunity for using time as predictor
+#adding timestamp
+edx2 <- mutate(edx_train, date= as_datetime(timestamp))
+edx2
+
+edx2 %>%
+  mutate(date= round_date(date, unit = "week")) %>%
+  group_by(date)%>%
+  summarize(rating=mean(rating))%>%
+  ggplot(aes(date, rating))+
+  geom_point()+
+  geom_smooth()
+#correlation is there but not so strong, time will not be included in the model
+
+#Assessing the opportunity for including the genre effect
+names(edx_train)
+#Assessing opportunity for inclusion of genre
+edx %>% 
+  group_by(genres) %>%
+  summarize(n=n(), avg= mean(rating), se = sd(rating)/sqrt(n())) %>%
+  filter(n >=1000) %>%
+  mutate(genres = reorder(genres, avg)) %>%
+  ggplot(aes(x= genres, y=avg, ymin= avg - 2*se, ymax=avg+2*se))+
+  geom_point()+
+  geom_errorbar()+
+  theme(axis.text.x = element_text(angle =90, hjust=1))
+#Strong evidence of genre effect observed, will be included in the model
+
+##########################################################
+# Model 1 based on simple average rating
+##########################################################
+
 edx_train$rating
   # Computing
 muedx <- mean(edx_train$rating)
@@ -126,14 +198,17 @@ muedx
 model_1_rmse <- RMSE(edx_test$rating, muedx)
 model_1_rmse
 
-#Second model with movie effect
-  #Compute least square to estimate using Yu,i-u_hat
+##########################################################
+# Model 2 with movie effect
+##########################################################
+
+#Compute least square to estimate using ratings-muedx
 names(edx_train)
 movie_avgs <- edx_train%>% 
   group_by(movieId)%>%
   summarize(b_i= mean(rating - muedx))
 movie_avgs
-  #Assessing improvement in prediction
+#Assessing improvement in prediction
 predicted_ratings <- muedx + 
   edx_test %>%
   left_join(movie_avgs, by= 'movieId') %>% 
@@ -143,65 +218,33 @@ predicted_ratings
 model_2_rmse <- RMSE(predicted_ratings, edx_test$rating)
 model_2_rmse
 
-# Third Model with user effect
-names(edx)
-  #plotting the average rating for those above 100 ratings to assess relevance
-edx%>%
-  group_by(userId)%>%
-  summarize(b_u= mean(rating))%>%
-  filter(n()>=100)%>%
-  ggplot(aes(b_u))+
-  geom_histogram(bins=30, color = "black")
-movie_avgs$b_i
+##########################################################
+# Model 3 with user effect
+##########################################################
 
-  #Compute approximation of least square using average Yu,i_hat-u_hat-bi_hat
+#Compute approximation of least square using average ratings-u_hat-bi_hat
 user_avgs <- edx_train%>%
   left_join(movie_avgs, by= 'movieId') %>% 
   group_by(userId) %>%
   summarize(b_u= mean(rating- muedx - b_i))
 user_avgs
 
-    #construct predictors
+#construct predictors
 predicted_ratings<-edx_test %>%
   left_join(movie_avgs, by='movieId') %>%
   left_join(user_avgs, by='userId') %>%
   mutate(pred= muedx + b_i+ b_u) %>%
   pull(pred)
-  #measures improvement
+#measures improvement
 model_3_rmse <- RMSE(predicted_ratings,edx_test$rating)
 model_3_rmse
 
-#Assessing opportunity for using time as predictor
-  #adding timestamp
-edx2 <- mutate(edx_train, date= as_datetime(timestamp))
-edx2
 
-edx2 %>%mutate(date= round_date(date, unit = "week")) %>%
-  group_by(date)%>%
-  summarize(rating=mean(rating))%>%
-  ggplot(aes(date, rating))+
-  geom_point()+
-  geom_smooth()
-  #correlation is there but not so strong
+##########################################################
+# Model 4 with genre effect
+##########################################################
 
-#Assessing the opportunity for including the genre effect
-names(edx_train)
-  #Assessing opportunity for inclusion of genre
-edx_train %>% group_by(genres) %>%
-  summarize(n=n(), avg= mean(rating), se = sd(rating)/sqrt(n())) %>%
-  filter(n >=1000) %>%
-  mutate(genres = reorder(genres, avg)) %>%
-  ggplot(aes(x= genres, y=avg, ymin= avg - 2*se, ymax=avg+2*se))+
-  geom_point()+
-  geom_point()+
-  geom_errorbar()#+
-  #theme(axis.text.x = element_text(angle =90, hjust=1))
-  #Strong evidence of genre effect observed
-
-  #to check from other lessons on genre
-
-#Fourth Model using genre as predictor
-  #Compute rating per genre
+#Compute rating per genre
 names(edx_train)
 genre_avgs <- edx_train %>%
   left_join(movie_avgs, by='movieId') %>%
@@ -220,19 +263,22 @@ predicted_ratings <- edx_test %>%
 model_4_rmse <- RMSE(predicted_ratings,edx_test$rating)
 model_4_rmse
 
-model_1_rmse
+model_1_rmse 
 model_2_rmse
 model_3_rmse
 model_4_rmse
 
+##########################################################
+# Model 5 with regularization and cross validation
+##########################################################
 
-# Fifth model Setting of lambda via cross validation
 # Compute the predicted ratings on validation dataset using different values of lambda
 # Setting up of the function
 movie_avgs_lambda_ = NULL
 user_avgs_lamda_   = NULL
 genre_avgs_lamda_  = NULL
 
+# Definition of function to compute RMSE for one lambda
 do_one_rmse_lambda <- function(lambda, edx_train, edx_test)  {
   # Calculate the average by movie
   movie_avgs_lambda <- edx_train %>%
@@ -352,67 +398,26 @@ ggplot(datap, aes(lambdas)) +
   geom_line(aes(y = rmses_withcv, colour = "cv")) +
   labs(color="method") + ylab("Rmse") + xlab("Lambdas")
 
+#Compute rmse on edx train and test sample
+
+model_5_rmse =
+  remse_lk = do_one_rmse_lambda (lambda=min_lambda,
+                                 edx_train=edx_train,
+                                 edx_test=edx_test)
+model_5_rmse
+model_4_rmse
+model_3_rmse
+model_2_rmse
+model_1_rmse
+
+##########################################################
+# Final verification of Model 5 msme on validation set
+##########################################################
+
 model_5_rmse =
   remse_lk = do_one_rmse_lambda (lambda=min_lambda,
                                  edx_train=edx,
                                  edx_test=final_holdout_test)
 model_5_rmse
-
-
-# # Implementation of regularization
-# lambdas <- seq(0, 15, 0.1)
-# 
-# # Compute the predicted ratings on validation dataset using different values of lambda
-# 
-# rmses <- sapply(lambdas, function(lambda) {
-#   
-#   # Calculate the average by movie
-#   
-#   movie_avgs_lambda <- edx %>%
-#     group_by(movieId) %>%
-#     summarize(b_i = sum(rating - muedx) / (n() + lambda))
-#   
-#   # Calculate the average by user
-#   
-#   user_avgs_lamda <- edx %>%
-#     left_join(movie_avgs_lambda, by='movieId') %>%
-#     group_by(userId) %>%
-#     summarize(b_u = sum(rating - b_i - muedx) / (n() + lambda))
-#   
-#   # Calculate the average by genre
-#   
-#     genre_avgs_lamda <- edx %>%
-#     left_join(movie_avgs_lambda, by='movieId') %>%
-#     left_join(user_avgs_lamda, by='userId') %>%
-#     group_by(genres) %>%
-#     summarize(b_u_g = sum(rating - b_i - muedx - b_u) / (n() + lambda))
-#   
-#   # Compute the predicted ratings on validation dataset
-#   predicted_ratings <- final_holdout_test %>%
-#     left_join(movie_avgs_lambda, by='movieId') %>%
-#     left_join(user_avgs_lamda, by='userId') %>%
-#     left_join(genre_avgs_lamda, by='genres') %>%
-#     mutate(pred = muedx + b_i + b_u + b_u_g) %>%
-#     pull(pred)
-#   
-#   # Predict the RMSE on the validation set
-#   
-#   RMSE(final_holdout_test$rating, predicted_ratings)
-#   })
-
-# Get the lambda value that minimize the RMSE
-
-#min_lambda <- lambdas[which.min(rmses)]
-#min_lambda
-# Predict the RMSE on the validation set
-
-#rmse_regularized_movie_user_genre_model <- min(rmses)
-#rmse_regularized_movie_user_genre_model
-
-# Adding the results to the results dataset
-
-#results <- results %>% add_row(model="Regularized Movie+User+Genre Based Model", RMSE=rmse_regularized_movie_user_genre_model)
-
-
 
 
