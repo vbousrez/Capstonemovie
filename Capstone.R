@@ -414,10 +414,10 @@ model_1_rmse
 # Final verification of Model 5 msme on validation set
 ##########################################################
 
-model_5_rmse =
+model_final_rmse =
   remse_lk = do_one_rmse_lambda (lambda=min_lambda,
                                  edx_train=edx,
                                  edx_test=final_holdout_test)
-model_5_rmse
+model_final_rmse
 
 
