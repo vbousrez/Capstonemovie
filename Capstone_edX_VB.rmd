@@ -17,19 +17,19 @@ The criteria to assess the success of the algorithm is the root-mean-square erro
 In order to proceed, we will:
 
 * Prepare the work environment:
- + Download and load the libraries.
- + Download, unzip and consolidate the movie and ratings files.
- + Dedicate 10% of the “movielens” file to final testing in the final_holdout_test. The remaining 90% goes to “edX”.
+    + Download and load the libraries.
+    + Download, unzip and consolidate the movie and ratings files.
+    + Dedicate 10% of the “movielens” file to final testing in the final_holdout_test. The remaining 90% goes to “edX”.
 
 * Split “edX” between test and train.
 
-##	Analyse the data set.
+*	Analyse the data set.
 
 * Calculate the RMSE for four models.
- + Simple ratings average
- + Movie effects
- + User effects
- + Genre effects.
+    + Simple ratings average
+    + Movie effects
+    + User effects
+    + Genre effects.
 
 * Including the regularization and a cross validation.
 
@@ -100,9 +100,9 @@ movielens <- left_join(ratings, movies, by = "movieId")
 ## Review of movielens
 
 The outcome from the code above is the “movielens” data set. It has:
--	10,000,054 rows and 6 columns
--	69,878 unique user id.
--	10,677 unique movie id.
+*	10,000,054 rows and 6 columns
+*	69,878 unique user id.
+*	10,677 unique movie id.
 
 ## Making processing faster
 
@@ -169,10 +169,10 @@ dim(edx_test)
 ## Analyze the dataset
 
 Before proceeding with calculating the models, we want to assess which variable makes more sense to include. We will look at movie, users, timestamp and genre. We will look at how widespread is the rating for each variable and what is the distribution of ratings for each variable.  We will thus look at the distribution of ratings for each variable.
--	Movie effect
+###	Movie effect
+
 ```{r}
 #plotting the average rating for those above 100 ratings to assess distribution and concentration of rating
-```{r}
 edx%>%
   group_by(movieId)%>%
   summarize(avg= mean(rating))%>%
@@ -184,7 +184,7 @@ edx%>%
 We can see a great variety of ratings in the movie ratings value and that this will surely be a significant indicator we will test.
 
 
--	User effect
+###	User effect
 ```{r}
 #Analysis of user effect
 names(edx)
@@ -200,7 +200,7 @@ edx%>%
 
 We can see a great variety of ratings in the user ratings value and that this will surely be a significant indicator we will test.
 
--	Time effect
+###	Time effect
 ```{r}
 #Assessing opportunity for using time as predictor
 #adding timestamp
@@ -216,7 +216,7 @@ edx2 %>%
 ```
 We can see the effect is not so strong, we will not keep it an indicator to test.
 
--	Genre effect
+###	Genre effect
 ```{r}
 edx %>% 
   group_by(genres) %>%
@@ -231,9 +231,9 @@ edx %>%
 
 This will be kept as a rating to test.
 
-##“Training” and “Testing” the models
+## “Training” and “Testing” the models
  
-## Model 1 based on simple average rating
+### Model 1 based on simple average rating
 
 We will start with using the average of all movie ratings as a basis predictor. 
 
@@ -246,7 +246,7 @@ model_1_rmse
 ```
 Any variable which will improve the accuracy from this RMSE will add value to the algorithm.
 
-## Model 2 with movie effect
+### Model 2 with movie effect
 
 We will see if using the average rating for each movie improves the RMSE. That means that we will calculate the average rating for each movie excluding any other variable. In order to proceed, we will not use the lm function which might take too long but rely on the directly on the known expression of the estimate as averages as if obtained by the least square, leveraging on “ratings – muedx”.
 ```{r}
@@ -267,7 +267,7 @@ model_2_rmse
 
 The RMSE has improved.
 
-##	Model 3 with user effect
+###	Model 3 with user effect
 
 Here, we will see if including the average rating per user can improve the RMSE. The lm function will also take too long so we rely on the directly on the known expression of the estimate as averages as if obtained by the least square leveraging on “ratings -u_hat-bi_hat”.
 
@@ -293,7 +293,7 @@ model_3_rmse
 
 Using the average rating per user, in addition to the rating per movie and the overall average improve the MSME.
 
-## Model 4 with genre effect
+### Model 4 with genre effect
 
 Here, we will see if including the average rating per user can improve the RMSE. The lm function will also take too long so we will leverage on “ratings -u_hat-bi_hat-bu_hat”.
 
@@ -321,9 +321,9 @@ model_4_rmse
 Using the genre enables to improve the RMSE.
 
 ## Model 5 with regularization and cross validation
-Including the regularization and the cross validation.
 The number of users impacts the quality of the prediction, the fewer users give a rating, the lower is the quality of the prediction. We use regularization to reduce the impact of outliers created using reduced sample size. We will determine the lambda which enable to minimize the RMSE: 
--	First, we set up the function to calculate RMSE based on lambda
+
+### First, we set up the function to calculate RMSE based on lambda
 
 ```{r}
 # Compute the predicted ratings on validation dataset using different values of lambda
@@ -368,7 +368,7 @@ do_one_rmse_lambda <- function(lambda, edx_train, edx_test)  {
   rmse
 }
 ```
--	Then, in order to reduce the bias for the error of prediction, we cross validate the results by splitting edx into 10 train and test sets and assess which lambda minimizes the RMSE .
+###	Then, in order to reduce the bias for the error of prediction, we cross validate the results by splitting edx into 10 train and test sets and assess which lambda minimizes the RMSE .
 
 ```{r}
 # Implementation of cross-validation for setting best lambda, after finding lambda from only sample edx
