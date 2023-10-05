@@ -35,7 +35,7 @@ In order to proceed, we will:
 
 * Calculation of RMSE on the final model.
 
-# Part 2 – Methods/analysis.
+# Part 2 – Methods/analysis
 
 ## Downloading and loading the files
 
@@ -124,7 +124,6 @@ set.seed(1, sample.kind="Rounding") # if using R 3.6 or later
 # set.seed(1) # if using R 3.5 or earlier
 test_index <- createDataPartition(y = movielens$rating, times = 1, p = 0.1, list = FALSE)
 edx <- movielens[-test_index,]
-
 temp <- movielens[test_index,]
 
 
@@ -154,21 +153,31 @@ In order to avoid using final_holdout_test for testing the different models, we 
 test_index <- createDataPartition(y = edx$rating, times = 1, p = 0.1, list = FALSE)
 edx_train <- edx[-test_index,]
 temp <- edx[test_index,]
+nrow(edx_train)
+nrow(temp)
+nrow(edx_train) + nrow(temp) - nrow(edx)
+
 # Make sure userId and movieId in test set are also in train set
 edx_test  <- temp%>% 
   semi_join(edx_train, by = "movieId") %>%
   semi_join(edx_train, by = "userId")
+nrow(edx_train) + nrow(edx_test) - nrow(edx)
 
 # Add rows removed from test set back into train set
 removed <- anti_join(temp, edx_test)
+nrow(removed)
+
 edx_train <- rbind(edx_train, removed )
 rm(temp, removed)
 dim(edx_train)
 dim(edx_test)
+nrow(edx_train) + nrow(edx_test) - nrow(edx)
+
 ```
 ## Analyze the dataset
 
 Before proceeding with calculating the models, we want to assess which variable makes more sense to include. We will look at movie, users, timestamp and genre. We will look at how widespread is the rating for each variable and what is the distribution of ratings for each variable.  We will thus look at the distribution of ratings for each variable.
+
 ###	Movie effect
 
 ```{r}
@@ -323,7 +332,7 @@ Using the genre enables to improve the RMSE.
 ## Model 5 with regularization and cross validation
 The number of users impacts the quality of the prediction, the fewer users give a rating, the lower is the quality of the prediction. We use regularization to reduce the impact of outliers created using reduced sample size. We will determine the lambda which enable to minimize the RMSE: 
 
-### First, we set up the function to calculate RMSE based on lambda
+### First, we set up the function to calculate RMSE based on lambda.
 
 ```{r}
 # Compute the predicted ratings on validation dataset using different values of lambda
@@ -368,7 +377,7 @@ do_one_rmse_lambda <- function(lambda, edx_train, edx_test)  {
   rmse
 }
 ```
-###	Then, in order to reduce the bias for the error of prediction, we cross validate the results by splitting edx into 10 train and test sets and assess which lambda minimizes the RMSE .
+###	Then, in order to reduce the bias for the error of prediction, we cross validate the results by splitting edx into 10 train and test sets and assess which lambda minimizes the RMSE.
 
 ```{r}
 # Implementation of cross-validation for setting best lambda, after finding lambda from only sample edx
@@ -386,7 +395,7 @@ rmses
 idx = as.data.frame(1:nrow(edx))
 colnames(idx) = NULL
 #Split the sample in 10
-K = 3
+K = 10
 
 set.seed(543210)
 folds <- sample( cut(seq(1,nrow(edx)),breaks=K,labels=FALSE) )
@@ -429,8 +438,6 @@ rmses_withcv = rmses
 min_lambda <- lambdas[which.min(rmses)]
 min_lambda
 
-min_lambda
-
 library(ggplot2)
 datap <- data.frame(lambdas=lambdas,
                     rmses_crossval=rmses_withcv)
@@ -448,7 +455,7 @@ model_5_rmse =
                                  edx_test=edx_test)
 ```
 
-# Part 3 – Results.
+# Part 3 – Results
 
 We obtain the following results:
 The lambda which minimizes RMSE is equal to 5.
@@ -474,13 +481,11 @@ model_final_rmse =
                                  edx_test=final_holdout_test)
 model_final_rmse
 ```
-On checking on final validation test, we see that the RMSE for the selected model 5 is equal to 0.8644.
-> model_final_rmse
-[1] 0.8644501
+On checking on final validation test, we see that the RMSE for the selected model 5 is equal to 0.8644501
 
 Using average, movie effect, user effect and genre effect combined with regularization has proven the best method with a RMSE on the validation set of 0.8644501.
 
-# Part 4 – Conclusion.
+# Part 4 – Conclusion
 
 We have built a model that predicts the ratings for movielens with an accuracy, measured by RMSE, within the expectations of the assignment (<0.86490). This has been achieved by including three variables: user, movie and genre, as well as including the regularization for the ratings given by a few numbers of users. 
 Further improvement could be achieved by splitting further the genre variable, which is currently very aggregated and including the time effect (although this should have marginal effect), as well as using a r function relevant for big data on the contrary to the old function lm which is relevant only for small dataset.

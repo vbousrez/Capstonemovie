@@ -45,35 +45,22 @@ ratings <- ratings %>%
          rating = as.numeric(rating),
          timestamp = as.integer(timestamp))
 
-ratings
-
 #Load and convert movie matrix into data frame
 movies <- as.data.frame(str_split(read_lines(movies_file), fixed("::"), simplify = TRUE),
                         stringsAsFactors = FALSE)
 colnames(movies) <- c("movieId", "title", "genres")
 movies <- movies %>%
   mutate(movieId = as.integer(movieId))
-movies
 
 #Join tables ratings and movies to build movie lens
 movielens <- left_join(ratings, movies, by = "movieId")
 movielens
 
-#Check size of the data table
-dim(movielens) 
-#10000054 cells number non null and 6 columns       
-
-#Check unique user id
-length(unique(movielens$userId))
-
-#Check unique movie id
-length(unique(movielens$movieId))
 
 # Convert string character of genre into string of integer for faster processing
 movielens$genres = as.factor(movielens$genres)
 movielens$genres = as.numeric(movielens$genres)
 movielens$genres = as.character(movielens$genres)
-head(movielens)
 
 # Final hold-out test set will be 10% of MovieLens data
 set.seed(1, sample.kind="Rounding") # if using R 3.6 or later
@@ -81,74 +68,66 @@ set.seed(1, sample.kind="Rounding") # if using R 3.6 or later
 # set.seed(1) # if using R 3.5 or earlier
 test_index <- createDataPartition(y = movielens$rating, times = 1, p = 0.1, list = FALSE)
 edx <- movielens[-test_index,]
-edx
+
 temp <- movielens[test_index,]
-temp
+
 
 # Make sure userId and movieId in final hold-out test set are also in edx set
 final_holdout_test <- temp %>% 
   semi_join(edx, by = "movieId") %>%
   semi_join(edx, by = "userId")
-final_holdout_test
+
 
 # Add rows removed from final hold-out test set back into edx set
 removed <- anti_join(temp, final_holdout_test)
-removed
+
 edx <- rbind(edx, removed)
-edx
 
 rm(dl, ratings, movies, test_index, temp, movielens, removed)
-
-edx
 
 # Split edX between test and train for models 1 to 4
 test_index <- createDataPartition(y = edx$rating, times = 1, p = 0.1, list = FALSE)
 edx_train <- edx[-test_index,]
-edx
 temp <- edx[test_index,]
-temp
+nrow(edx_train)
+nrow(temp)
+nrow(edx_train) + nrow(temp) - nrow(edx)
+
 # Make sure userId and movieId in test set are also in train set
 edx_test  <- temp%>% 
   semi_join(edx_train, by = "movieId") %>%
   semi_join(edx_train, by = "userId")
-edx_test  
+nrow(edx_train) + nrow(edx_test) - nrow(edx)
 
 # Add rows removed from test set back into train set
 removed <- anti_join(temp, edx_test)
-removed
+nrow(removed)
+
 edx_train <- rbind(edx, edx_train )
-edx_train 
+ 
 rm(temp, removed)
+dim(edx_train)
+dim(edx_test)
+nrow(edx_train) + nrow(edx_test) - nrow(edx)
 
 ##########################################################
 # Data Analysis for inclusion of variables
 ##########################################################
 
-#Visualization of movie effect
-edx %>% 
-  group_by(movieId) %>%
-  summarize(n=n(), avg= mean(rating), se = sd(rating)/sqrt(n())) %>%
-  filter(n >=1000) %>%
-  mutate(genres = reorder(movieId, avg)) %>%
-  ggplot(aes(x= movieId, y=avg, ymin= avg - 2*se, ymax=avg+2*se))+
-  geom_point()+
-  geom_errorbar()+
-  theme(axis.text.x = element_text(angle =90, hjust=1))
+#Movie effect
+
+#plotting the average rating for those above 100 ratings to assess distribution and concentration of ratins
+edx%>%
+  group_by(movieId)%>%
+  summarize(avg= mean(rating))%>%
+  filter(n()>=100)%>%
+  ggplot(aes(avg))+
+  geom_histogram(bins=30, color = "black")
+
 #Movie effect Will be included in the model
 
 #Analysis of user effect
 names(edx)
-#plotting the average rating for those above 100 ratings to assess relevance
-edx %>% 
-  group_by(userId) %>%
-  summarize(n=n(), avg= mean(rating), se = sd(rating)/sqrt(n())) %>%
-  filter(n >=1000) %>%
-  mutate(genres = reorder(userId, avg)) %>%
-  ggplot(aes(x= userId, y=avg, ymin= avg - 2*se, ymax=avg+2*se))+
-  geom_point()+
-  geom_errorbar()+
-  theme(axis.text.x = element_text(angle =90, hjust=1))
-#User effect Will be included in the model
 
 #plotting the average rating for those above 100 ratings to assess relevance
 edx%>%
@@ -190,7 +169,6 @@ edx %>%
 # Model 1 based on simple average rating
 ##########################################################
 
-edx_train$rating
   # Computing
 muedx <- mean(edx_train$rating)
 muedx
@@ -273,10 +251,6 @@ model_4_rmse
 ##########################################################
 
 # Compute the predicted ratings on validation dataset using different values of lambda
-# Setting up of the function
-movie_avgs_lambda_ = NULL
-user_avgs_lamda_   = NULL
-genre_avgs_lamda_  = NULL
 
 # Definition of function to compute RMSE for one lambda
 do_one_rmse_lambda <- function(lambda, edx_train, edx_test)  {
@@ -318,11 +292,9 @@ do_one_rmse_lambda <- function(lambda, edx_train, edx_test)  {
   rmse
 }
 
-# better:
-# with cross-validation for setting best lambda
-# then after finding lambda from only sample edx
-# ... apply to the final validation sample
-# ... (final_holdout_test at the end only)
+# Implementation of cross-validation for setting best lambda, after finding lambda from only sample edx
+# Then apply to the final validation sample
+# (final_holdout_test at the end only)
 lambdas <- seq(0, 8, 0.5)
 lambdas
 rmses   <- 0 * lambdas
@@ -343,10 +315,6 @@ table(folds)
 sum(table(folds))
 head(folds)
 tail(folds)
-
-# movie_avgs_lambda_ = NULL
-# user_avgs_lamda_   = NULL
-# genre_avgs_lamda_  = NULL
 
 #then apply compute rmse for each fold removed, and average
 for (l in 1:length(lambdas)) {
@@ -383,8 +351,6 @@ rmses_withcv = rmses
 min_lambda <- lambdas[which.min(rmses)]
 min_lambda
 
-min_lambda
-
 library(ggplot2)
 datap <- data.frame(lambdas=lambdas,
                     rmses_crossval=rmses_withcv)
@@ -392,11 +358,6 @@ ggplot(datap, aes(lambdas, rmses_crossval)) +
   ggtitle("RMSE WITH CV")+
   geom_line()+
   geom_vline(xintercept = min_lambda)
-
-
-ggplot(datap, aes(lambdas)) +
-  geom_line(aes(y = rmses_withcv, colour = "cv")) +
-  labs(color="method") + ylab("Rmse") + xlab("Lambdas")
 
 #Compute rmse on edx train and test sample
 
@@ -411,7 +372,7 @@ model_2_rmse
 model_1_rmse
 
 ##########################################################
-# Final verification of Model 5 msme on validation set
+# Final verification of Model 5 RMSE on validation set
 ##########################################################
 
 model_final_rmse =
